@@ -1,7 +1,11 @@
-# blog/urls.py
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PostViewSet
+
+router = DefaultRouter()
+
+router.register('posts', PostViewSet, basename='post')
 
 urlpatterns = [
-    path('', views.post_list, name='post_list'),
+    path('', include(router.urls)),
 ]
