@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     volumes:
-      - sqlite_data:/app/db.sqlite3
+      - sqlite_data:/app/data
     command: >
       sh -c "python manage.py migrate &&
              gunicorn mysite.wsgi:application --bind 0.0.0.0:8000"
