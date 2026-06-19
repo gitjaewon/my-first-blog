@@ -10,7 +10,6 @@
         header { background: #fff; border-bottom: 1px solid #e0e0e0; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
         header h1 a { text-decoration: none; color: #333; font-size: 1.4rem; }
         .auth-area { display: flex; gap: 0.5rem; align-items: center; }
-        .auth-area input { padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85rem; }
         button { padding: 0.4rem 0.9rem; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
         .btn-primary { background: #4a90e2; color: #fff; }
         .btn-primary:hover { background: #357abd; }
@@ -18,12 +17,27 @@
         .btn-danger:hover { background: #c0392b; }
         .btn-success { background: #27ae60; color: #fff; }
         .btn-success:hover { background: #219150; }
+        .btn-secondary { background: #888; color: #fff; }
+        .btn-secondary:hover { background: #666; }
         main { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #fff; border-radius: 10px; padding: 2rem; width: 360px; }
+        .modal h2 { margin-bottom: 1.2rem; font-size: 1.1rem; }
+        .modal-tabs { display: flex; gap: 0; margin-bottom: 1.2rem; border-bottom: 2px solid #e0e0e0; }
+        .modal-tab { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.9rem; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .modal-tab.active { color: #4a90e2; border-bottom-color: #4a90e2; }
+        .modal input { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 0.8rem; font-size: 0.95rem; }
+        .modal-actions { display: flex; justify-content: space-between; align-items: center; }
+        .modal-error { color: #c0392b; font-size: 0.85rem; margin-bottom: 0.8rem; display: none; }
+
         #new-post-form { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; border: 1px solid #e0e0e0; display: none; }
         #new-post-form h2 { margin-bottom: 1rem; font-size: 1.1rem; }
         #new-post-form input, #new-post-form textarea { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 0.8rem; font-size: 0.95rem; }
         #new-post-form textarea { height: 150px; resize: vertical; font-family: inherit; }
         #new-post-form .form-actions { display: flex; gap: 0.5rem; }
+
         .post-card { background: #fff; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.2rem; border: 1px solid #e0e0e0; }
         .post-card h2 { font-size: 1.2rem; margin-bottom: 0.4rem; }
         .post-meta { font-size: 0.8rem; color: #888; margin-bottom: 0.8rem; }
@@ -39,14 +53,41 @@
     </style>
 </head>
 <body>
+
 <header>
     <h1><a href="/">형준의 블로그</a></h1>
-    <div class="auth-area" id="auth-area">
-        <input type="text" id="username" placeholder="아이디">
-        <input type="password" id="password" placeholder="비밀번호">
-        <button class="btn-primary" onclick="login()">로그인</button>
-    </div>
+    <div class="auth-area" id="auth-area"></div>
 </header>
+
+<!-- 로그인/회원가입 모달 -->
+<div class="modal-overlay" id="auth-modal">
+    <div class="modal">
+        <div class="modal-tabs">
+            <button class="modal-tab active" onclick="switchTab('login')">로그인</button>
+            <button class="modal-tab" onclick="switchTab('register')">회원가입</button>
+        </div>
+        <div id="modal-error" class="modal-error"></div>
+
+        <div id="tab-login">
+            <input type="text" id="login-username" placeholder="아이디">
+            <input type="password" id="login-password" placeholder="비밀번호">
+            <div class="modal-actions">
+                <button class="btn-primary" onclick="login()">로그인</button>
+                <button class="btn-secondary" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+
+        <div id="tab-register" style="display:none">
+            <input type="text" id="reg-username" placeholder="아이디">
+            <input type="password" id="reg-password" placeholder="비밀번호">
+            <input type="password" id="reg-password2" placeholder="비밀번호 확인">
+            <div class="modal-actions">
+                <button class="btn-success" onclick="register()">가입하기</button>
+                <button class="btn-secondary" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <main>
     <div id="status-msg"></div>
@@ -56,7 +97,7 @@
         <input type="text" id="post-title" placeholder="제목">
         <textarea id="post-text" placeholder="내용"></textarea>
         <div class="form-actions">
-            <button class="btn-primary" onclick="createPost()">저장 (임시)</button>
+            <button class="btn-primary" onclick="createPost(false)">임시저장</button>
             <button class="btn-success" onclick="createPost(true)">저장 & 발행</button>
         </div>
     </div>
@@ -72,7 +113,7 @@
         const el = document.getElementById('status-msg');
         el.textContent = msg;
         el.className = type;
-        setTimeout(() => el.style.display = 'none', 3000);
+        setTimeout(() => { el.style.display = 'none'; }, 3000);
     }
 
     function updateAuthUI() {
@@ -84,17 +125,40 @@
                 <button class="btn-danger" onclick="logout()">로그아웃</button>
             `;
         } else {
-            area.innerHTML = `
-                <input type="text" id="username" placeholder="아이디">
-                <input type="password" id="password" placeholder="비밀번호">
-                <button class="btn-primary" onclick="login()">로그인</button>
-            `;
+            area.innerHTML = `<button class="btn-primary" onclick="openModal()">로그인 / 회원가입</button>`;
         }
     }
 
+    function openModal() {
+        document.getElementById('auth-modal').classList.add('active');
+        clearModalError();
+    }
+    function closeModal() {
+        document.getElementById('auth-modal').classList.remove('active');
+    }
+    function clearModalError() {
+        const el = document.getElementById('modal-error');
+        el.style.display = 'none';
+        el.textContent = '';
+    }
+    function showModalError(msg) {
+        const el = document.getElementById('modal-error');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    function switchTab(tab) {
+        document.getElementById('tab-login').style.display = tab === 'login' ? 'block' : 'none';
+        document.getElementById('tab-register').style.display = tab === 'register' ? 'block' : 'none';
+        document.querySelectorAll('.modal-tab').forEach((el, i) => {
+            el.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+        });
+        clearModalError();
+    }
+
     async function login() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
+        const username = document.getElementById('login-username').value.trim();
+        const password = document.getElementById('login-password').value;
         const res = await fetch('/api-token-auth/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -106,10 +170,38 @@
             currentUser = username;
             localStorage.setItem('token', token);
             localStorage.setItem('username', username);
+            closeModal();
             updateAuthUI();
             showStatus('로그인 성공', 'success');
+            loadPosts();
         } else {
-            showStatus('아이디 또는 비밀번호가 틀렸습니다', 'error');
+            showModalError('아이디 또는 비밀번호가 틀렸습니다');
+        }
+    }
+
+    async function register() {
+        const username = document.getElementById('reg-username').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const password2 = document.getElementById('reg-password2').value;
+        if (!username || !password) { showModalError('아이디와 비밀번호를 입력하세요'); return; }
+        if (password !== password2) { showModalError('비밀번호가 일치하지 않습니다'); return; }
+        const res = await fetch('/api/register/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            token = data.token;
+            currentUser = data.username;
+            localStorage.setItem('token', token);
+            localStorage.setItem('username', currentUser);
+            closeModal();
+            updateAuthUI();
+            showStatus('회원가입 완료', 'success');
+            loadPosts();
+        } else {
+            showModalError(data.error || '회원가입 실패');
         }
     }
 
@@ -128,11 +220,10 @@
         form.style.display = form.style.display === 'none' ? 'block' : 'none';
     }
 
-    async function createPost(publish = false) {
+    async function createPost(publish) {
         const title = document.getElementById('post-title').value.trim();
         const text = document.getElementById('post-text').value.trim();
         if (!title || !text) { showStatus('제목과 내용을 입력하세요', 'error'); return; }
-
         const res = await fetch('/api/posts/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
@@ -140,23 +231,23 @@
         });
         if (res.ok) {
             const post = await res.json();
-            if (publish) await publishPost(post.id);
+            if (publish) await publishPost(post.id, false);
             document.getElementById('post-title').value = '';
             document.getElementById('post-text').value = '';
             document.getElementById('new-post-form').style.display = 'none';
-            showStatus('글이 저장되었습니다', 'success');
+            showStatus(publish ? '글이 발행되었습니다' : '임시저장 완료', 'success');
             loadPosts();
         } else {
             showStatus('글 저장 실패', 'error');
         }
     }
 
-    async function publishPost(id) {
+    async function publishPost(id, reload = true) {
         await fetch(`/api/posts/${id}/publish/`, {
             method: 'POST',
             headers: { 'Authorization': `Token ${token}` }
         });
-        loadPosts();
+        if (reload) { showStatus('발행 완료', 'success'); loadPosts(); }
     }
 
     async function deletePost(id) {
@@ -180,7 +271,7 @@
                         ${post.published_date ? '발행됨' : '임시저장'}
                     </span>
                 </h2>
-                <div class="post-meta">${post.author} · ${formatDate(post.created_date)}</div>
+                <div class="post-meta">${escHtml(post.author)} · ${formatDate(post.created_date)}</div>
                 <div class="post-text">${escHtml(post.text)}</div>
                 ${token ? `
                 <div class="post-actions">
@@ -192,12 +283,16 @@
     }
 
     function escHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     function formatDate(iso) {
         return new Date(iso).toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric' });
     }
+
+    document.getElementById('auth-modal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
 
     updateAuthUI();
     loadPosts();
